@@ -1,0 +1,148 @@
+services:
+  es01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: es01
+    environment:
+      - node.name=es01
+      - cluster.name=es-docker-cluster
+      - discovery.seed_hosts=es02,es03
+      - cluster.initial_master_nodes=es01,es02,es03
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=true
+      - xpack.security.http.ssl.key=/usr/share/elasticsearch/config/certs/instance/instance.key
+      - xpack.security.http.ssl.certificate=/usr/share/elasticsearch/config/certs/instance/instance.crt
+      - xpack.security.http.ssl.certificate_authorities=/usr/share/elasticsearch/config/certs/ca/ca.crt
+
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.key=/usr/share/elasticsearch/config/certs/instance/instance.key
+      - xpack.security.transport.ssl.certificate=/usr/share/elasticsearch/config/certs/instance/instance.crt
+      - xpack.security.transport.ssl.certificate_authorities=/usr/share/elasticsearch/config/certs/ca/ca.crt
+
+      - ELASTIC_PASSWORD=password
+    volumes:
+      - ./certs:/usr/share/elasticsearch/config/certs
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+    networks:
+      - esnet
+
+  es02:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: es02
+    environment:
+      - node.name=es02
+      - cluster.name=es-docker-cluster
+      - discovery.seed_hosts=es01,es03
+      - cluster.initial_master_nodes=es01,es02,es03
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=true
+      - xpack.security.http.ssl.key=/usr/share/elasticsearch/config/certs/instance/instance.key
+      - xpack.security.http.ssl.certificate=/usr/share/elasticsearch/config/certs/instance/instance.crt
+      - xpack.security.http.ssl.certificate_authorities=/usr/share/elasticsearch/config/certs/ca/ca.crt
+
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.key=/usr/share/elasticsearch/config/certs/instance/instance.key
+      - xpack.security.transport.ssl.certificate=/usr/share/elasticsearch/config/certs/instance/instance.crt
+      - xpack.security.transport.ssl.certificate_authorities=/usr/share/elasticsearch/config/certs/ca/ca.crt
+
+      - ELASTIC_PASSWORD=password
+    volumes:
+      - ./certs:/usr/share/elasticsearch/config/certs
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    networks:
+      - esnet
+
+  es03:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: es03
+    environment:
+      - node.name=es03
+      - cluster.name=es-docker-cluster
+      - discovery.seed_hosts=es01,es02
+      - cluster.initial_master_nodes=es01,es02,es03
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=true
+      - xpack.security.http.ssl.key=/usr/share/elasticsearch/config/certs/instance/instance.key
+      - xpack.security.http.ssl.certificate=/usr/share/elasticsearch/config/certs/instance/instance.crt
+      - xpack.security.http.ssl.certificate_authorities=/usr/share/elasticsearch/config/certs/ca/ca.crt
+
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.key=/usr/share/elasticsearch/config/certs/instance/instance.key
+      - xpack.security.transport.ssl.certificate=/usr/share/elasticsearch/config/certs/instance/instance.crt
+      - xpack.security.transport.ssl.certificate_authorities=/usr/share/elasticsearch/config/certs/ca/ca.crt
+
+      - ELASTIC_PASSWORD=password
+    volumes:
+      - ./certs:/usr/share/elasticsearch/config/certs
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    networks:
+      - esnet
+
+# Init container to set kibana_system password, elastic can't be used
+  es-init:
+    image: curlimages/curl:8.8.0
+    depends_on:
+      - es01
+    entrypoint: >
+      sh -c '
+        echo "Attendo Elasticsearch...";
+        until curl -k -u elastic:password https://es01:9200/_cluster/health; do sleep 3; done;
+        echo "Creo o resetto password di kibana_system...";
+        curl -k -u elastic:password -X POST "https://es01:9200/_security/user/kibana_system/_password" \
+          -H "Content-Type: application/json" \
+          -d "{\"password\":\"password\"}";
+        echo "Password di kibana_system impostata.";
+      '
+    networks:
+      - esnet
+
+
+  kib01:
+    image: docker.elastic.co/kibana/kibana:8.15.0
+    container_name: kib01
+    environment:
+      - SERVER_NAME=kib01
+
+      - SERVER_SSL_ENABLED=true
+      - SERVER_SSL_CERTIFICATE=/usr/share/kibana/config/certs/kibana/kibana.crt
+      - SERVER_SSL_KEY=/usr/share/kibana/config/certs/kibana/kibana.key
+      - ELASTICSEARCH_HOSTS=["https://es01:9200"]
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=password
+      - ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=/usr/share/kibana/config/certs/ca/ca.crt
+      - ELASTICSEARCH_SSL_VERIFICATIONMODE=none
+
+
+    ports:
+      - "5601:5601"
+    depends_on:
+      - es-init
+    volumes:
+      - ./certs:/usr/share/kibana/config/certs
+    networks:
+      - esnet
+
+
+networks:
+  esnet:
+    driver: bridge

@@ -6,6 +6,7 @@ import (
 	"os"
 
 	elasticsearch "github.com/rmedina97/monitoring-challenge/internal/elasticsearch"
+	kibana "github.com/rmedina97/monitoring-challenge/internal/kibana"
 )
 
 func main() {
@@ -46,6 +47,10 @@ func main() {
 	switch *check {
 	case "elasticsearch":
 		code, msg := elasticsearch.CheckElasticsearch(*host, *user, *pass, *timeout, *skipTLS)
+		fmt.Println(msg)
+		os.Exit(code)
+	case "kibana":
+		code, msg := kibana.CheckKibana(*host, *user, *pass, *timeout, *skipTLS)
 		fmt.Println(msg)
 		os.Exit(code)
 	default:
