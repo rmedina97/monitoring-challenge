@@ -7,6 +7,7 @@ import (
 
 	elasticsearch "github.com/rmedina97/monitoring-challenge/internal/elasticsearch"
 	kibana "github.com/rmedina97/monitoring-challenge/internal/kibana"
+	logstash "github.com/rmedina97/monitoring-challenge/internal/logstash"
 )
 
 func main() {
@@ -51,6 +52,10 @@ func main() {
 		os.Exit(code)
 	case "kibana":
 		code, msg := kibana.CheckKibana(*host, *user, *pass, *timeout, *skipTLS)
+		fmt.Println(msg)
+		os.Exit(code)
+	case "logstash":
+		code, msg := logstash.CheckLogstash(*host, *user, *pass, *timeout, *skipTLS)
 		fmt.Println(msg)
 		os.Exit(code)
 	default:
